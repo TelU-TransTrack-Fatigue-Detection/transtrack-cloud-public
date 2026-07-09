@@ -1,0 +1,50 @@
+# Environment
+.env
+.venv/
+.DS_Store
+
+# Python
+__pycache__/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Testing
+.pytest_cache/
+
+# Claude
+.claude/
+
+# Runtime output (not committed)
+records/
+output/
+
+# Proprietary model architecture — never commit, see private/README.md
+private/
+
+# Models (large binaries)
+models/**/*.task
+models/**/*.pt
+models/**/*.pth
+models/**/*.onnx
+!models/classifier/dummy.pth
+
+# Datasets (large, local only)
+dataset*/
+data-test-*/
+initial-*/
+
+# Docs (PDF, large binary)
+docs/
+
+# Mock server runtime output
+mock/logs/*.log
+mock/logs/*.jsonl
+mock/videos/*.mp4
+mock/videos/*.avi
+mock/videos/*.mov
+
+# Legacy / scratch
+document/
+scripts/dev/

@@ -1,0 +1,86 @@
+services:
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: >
+      redis-server
+      --maxmemory 256mb
+      --maxmemory-policy noeviction
+      --save ""
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  api:
+    build: .
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://cloud.transtrack.co}
+      RECORD_TTL_SECONDS: ${RECORD_TTL_SECONDS:-1800}
+      VIDEO_TTL_SECONDS: ${VIDEO_TTL_SECONDS:-2700}
+    volumes:
+      - records:/app/records
+      - ./models:/app/models
+      - ./output:/app/output
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 15s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+    mem_limit: 512m
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+  worker:
+    build: .
+    restart: unless-stopped
+    command: >
+      celery -A app.worker.celery_app worker
+      --loglevel=info
+      --pool=prefork
+      --concurrency=${WORKER_CONCURRENCY:-2}
+      --max-tasks-per-child=50
+      -Q celery
+    env_file: .env
+    environment:
+      REDIS_URL: redis://redis:6379/0
+      PUBLIC_BASE_URL: ${PUBLIC_BASE_URL:-https://cloud.transtrack.co}
+      VIDEO_TTL_SECONDS: ${VIDEO_TTL_SECONDS:-2700}
+    volumes:
+      - records:/app/records
+      - ./models:/app/models
+      - ./output:/app/output
+    depends_on:
+      redis:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "celery", "-A", "app.worker.celery_app", "inspect", "ping", "--timeout", "5"]
+      interval: 30s
+      timeout: 10s
+      start_period: 60s
+      retries: 3
+    mem_limit: 3g
+    ulimits:
+      nofile:
+        soft: 65536
+        hard: 65536
+
+volumes:
+  redis_data:
+  records:    # named volume shared between api and worker
